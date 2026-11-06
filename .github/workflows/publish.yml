@@ -20,4 +20,6 @@ jobs:
           channel: stable
       - run: flutter pub get
       - run: flutter test
+      - run: flutter pub global activate pana
+      - run: flutter pub global run pana --exit-code-threshold 0 --flutter-sdk "$FLUTTER_ROOT" .
       - run: flutter pub publish --force

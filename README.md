@@ -42,6 +42,37 @@ to the background.
 `debug: kDebugMode` in `init` prints every queued event and every sent batch in debug builds. Keep it off in release:
 the log includes customer data.
 
+## Environments
+
+`init` sends to production by default. Point `endpoint` to homologation while testing the integration:
+
+| Environment | `endpoint` |
+| --- | --- |
+| Production (default) | `https://tracker.repediu.com.br/collect` |
+| Homologation | `https://tracker-hml.repediu.com.br/collect` |
+
+Each environment has its own write keys, and Repediu provides the homologation one. A key sent to the other
+environment is accepted and dropped, so nothing shows up in the panel. Homologation may be offline outside business
+hours (Brasília time); events stay queued in the app and are sent later.
+
+Choose both at build time instead of hardcoding them:
+
+```dart
+await Repediu.init(
+  writeKey: const String.fromEnvironment('REPEDIU_WRITE_KEY'),
+  endpoint: const String.fromEnvironment(
+    'REPEDIU_ENDPOINT',
+    defaultValue: 'https://tracker.repediu.com.br/collect',
+  ),
+);
+```
+
+```sh
+flutter run \
+  --dart-define=REPEDIU_ENDPOINT=https://tracker-hml.repediu.com.br/collect \
+  --dart-define=REPEDIU_WRITE_KEY=HOMOLOGATION_WRITE_KEY
+```
+
 ## Customer
 
 ```dart

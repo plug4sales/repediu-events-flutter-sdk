@@ -6,7 +6,26 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: flutter test
+      - run: flutter pub global activate pana 0.23.19
+      - run: flutter pub global run pana --exit-code-threshold 0 --flutter-sdk "$FLUTTER_ROOT" .
+      - run: flutter pub publish --dry-run
+
   publish:
+    needs: test
     runs-on: ubuntu-latest
     environment: pub.dev
     permissions:
@@ -14,12 +33,11 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
       - run: flutter pub get
-      - run: flutter test
-      - run: flutter pub global activate pana
-      - run: flutter pub global run pana --exit-code-threshold 0 --flutter-sdk "$FLUTTER_ROOT" .
       - run: flutter pub publish --force

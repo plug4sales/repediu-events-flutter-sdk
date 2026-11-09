@@ -1,6 +1,6 @@
 name: repediu_events
 description: Repediu events SDK for Flutter apps. Tracks screens, cart, orders, campaigns and customer identity, with an offline queue and multi-store support.
-version: 0.1.0
+version: 0.1.1
 repository: https://github.com/plug4sales/repediu-events-flutter-sdk
 issue_tracker: https://github.com/plug4sales/repediu-events-flutter-sdk/issues
 topics:

@@ -40,6 +40,10 @@ class Repediu {
       debugPrint('[Repediu] Error: writeKey is required');
       return;
     }
+    if (!allowedEndpoint(endpoint)) {
+      debugPrint('[Repediu] Error: endpoint must use https');
+      return;
+    }
     try {
       WidgetsFlutterBinding.ensureInitialized();
       final client = RepediuClient(

@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'identity.dart';
 
 const sdkName = 'flutter';
-const sdkVersion = '0.1.0';
+const sdkVersion = '0.1.1';
 const defaultEndpoint = 'https://tracker.repediu.com.br/collect';
 
 const allowedEvents = {
@@ -57,6 +57,13 @@ const sessionTimeout = Duration(minutes: 30);
 const maxQueuedEvents = 1000;
 const requestTimeout = Duration(seconds: 10);
 const maxRetryDelay = Duration(minutes: 5);
+
+bool allowedEndpoint(String endpoint) {
+  final uri = Uri.tryParse(endpoint);
+  if (uri == null) return false;
+  if (uri.isScheme('https')) return true;
+  return uri.isScheme('http') && const {'localhost', '127.0.0.1', '10.0.2.2'}.contains(uri.host);
+}
 
 class RepediuClient with WidgetsBindingObserver {
   RepediuClient({
@@ -244,6 +251,7 @@ class RepediuClient with WidgetsBindingObserver {
         _log('User identified: $derived');
         track('identify',
             {'user_id': derived, 'phone': phone, 'email': email, 'name': name}..removeWhere((_, v) => v == null));
+        flush();
       });
 
   void setWriteKey(String key) => _guard('setWriteKey', () {
@@ -287,6 +295,7 @@ class RepediuClient with WidgetsBindingObserver {
         _remove(_userIdKey);
         _remove(_sessionKey);
         _remove(_anonymousIdKey);
+        _superProperties.clear();
         _pending.clear();
         _persistQueue();
         _timer?.cancel();
@@ -436,7 +445,12 @@ class RepediuClient with WidgetsBindingObserver {
 
   void _persistQueue() {
     _queueChanged = false;
-    _save(_queueKey, jsonEncode(_pending));
+    _save(
+        _queueKey,
+        jsonEncode([
+          for (final event in _pending)
+            if (event['event'] != 'identify') event
+        ]));
   }
 
   void _save(String key, String value) => _settle(_prefs.setString(key, value));

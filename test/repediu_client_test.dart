@@ -107,6 +107,14 @@ void main() {
     });
   });
 
+  test('only https endpoints are allowed, keeping http for local development', () {
+    expect(allowedEndpoint('https://tracker.repediu.com.br/collect'), isTrue);
+    expect(allowedEndpoint('http://tracker.repediu.com.br/collect'), isFalse);
+    expect(allowedEndpoint('http://localhost:8080/collect'), isTrue);
+    expect(allowedEndpoint('http://10.0.2.2:8080/collect'), isTrue);
+    expect(allowedEndpoint('ftp://tracker.repediu.com.br'), isFalse);
+  });
+
   test('a batch follows the collector contract used by the web SDK', () async {
     final client = startClient();
     client.screen('/cardapio');
@@ -196,11 +204,27 @@ void main() {
     final client = startClient();
     client.track('view_item', {'item_id': 'x'});
     client.identify(phone: '17999998888', name: 'Cliente');
+    await pumpEventQueue();
     await client.flush();
 
     expect(collector.events.map((e) => e['user_id']), everyElement('rpd:tel:af426ec6c64d5584'));
     expect(collector.events.last['properties'],
         {'user_id': 'rpd:tel:af426ec6c64d5584', 'phone': '17999998888', 'name': 'Cliente'});
+  });
+
+  test('the identify event with the raw phone, email and name is never written to disk', () async {
+    collector.online = false;
+    final client = startClient();
+    client.identify(phone: '17999998888', email: 'ana@exemplo.com', name: 'Ana');
+    client.track('search', {'query': 'pizza'});
+    client.didChangeAppLifecycleState(AppLifecycleState.paused);
+    await pumpEventQueue();
+
+    final stored = prefs.getString('_rpd_queue')!;
+    expect(stored, isNot(contains('17999998888')));
+    expect(stored, isNot(contains('ana@exemplo.com')));
+    expect(stored, isNot(contains('identify')));
+    expect(jsonDecode(stored), hasLength(1));
   });
 
   test('campaign parameters from a deep link ride along until the session ends', () async {
@@ -374,6 +398,17 @@ void main() {
     expect(collector.events.map((e) => e['event']), ['search']);
   });
 
+  test('opting out clears registered properties so they do not come back after opting in', () async {
+    final client = startClient();
+    client.register({'store_id': 'centro'});
+    client.optOut();
+    client.optIn();
+    client.track('search', {'query': 'pizza'});
+    await client.flush();
+
+    expect(collector.events.single['properties'], {'query': 'pizza'});
+  });
+
   test('switching the write key sends each event under the key active when it was tracked', () async {
     final client = startClient();
     client.track('page_view');
@@ -503,7 +538,8 @@ void main() {
       await pumpEventQueue();
       await client.flush();
 
-      expect(collector.events.map((e) => e['event']), ['search']);
+      expect(collector.events.map((e) => e['event']), ['page_view', 'identify', 'search'],
+          reason: 'identify flushes eagerly, so events queued before the opt-out are delivered; nothing crashes');
     });
 
     test('a batch the collector refuses is dropped instead of retried forever', () async {
@@ -598,6 +634,7 @@ void main() {
       client.screen('/cardapio');
       client.optOut();
       await pumpEventQueue();
+      collector.batches.clear();
 
       final restarted = startClient();
       restarted.screen('/cardapio');
@@ -652,6 +689,7 @@ void main() {
       final client = startClient();
       client.identify(phone: '(17) 99999-8888', email: 'cliente@exemplo.com');
       client.track('search', {'query': 'pizza'});
+      await pumpEventQueue();
       await client.flush();
 
       final otherEvents = collector.events.where((e) => e['event'] != 'identify');
